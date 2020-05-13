@@ -10,11 +10,15 @@ const (
 )
 
 type (
-	generateFunc   func(source chan<- interface{})
+	generateFunc   func(source writer)
 	reduceFunc     func(item interface{}, data chan<- interface{})
 	reduceVoidFunc func(item interface{})
 	receiveFunc    func(data <-chan interface{})
 	holdPlace      struct{}
+
+	writer interface {
+		write(interface{})
+	}
 )
 
 func SafeGo(fn func()) {
@@ -47,7 +51,7 @@ func PipeLine(generate generateFunc, reduce reduceFunc, receive receiveFunc) {
 		defer func() {
 			close(source)
 		}()
-		generate(source)
+		generate(newGuardedWriter(source))
 	}
 
 	nReceive := func() {
@@ -96,7 +100,7 @@ func Pipe(generate generateFunc, reduceVoid reduceVoidFunc) {
 		defer func() {
 			close(source)
 		}()
-		generate(source)
+		generate(newGuardedWriter(source))
 	}
 
 	SafeGo(nGenerate)
@@ -123,12 +127,26 @@ func Pipe(generate generateFunc, reduceVoid reduceVoidFunc) {
 }
 
 func PipeFinish(fnList ...func()) {
-	Pipe(func(source chan<- interface{}) {
+	Pipe(func(write writer) {
 		for _, fn := range fnList {
-			source <- fn
+			write.write(fn)
 		}
 	}, func(item interface{}) {
 		fn := item.(func())
 		fn()
 	})
+}
+
+type guardedWriter struct {
+	channel chan<- interface{}
+}
+
+func newGuardedWriter(channel chan<- interface{}) *guardedWriter {
+	return &guardedWriter{
+		channel: channel,
+	}
+}
+
+func (gw *guardedWriter) write(data interface{}) {
+	gw.channel <- data
 }

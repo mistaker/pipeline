@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 )
@@ -14,9 +13,11 @@ func TestPipe(t *testing.T) {
 		s = append(s, i)
 	}
 
-	PipeLine(func(source chan<- interface{}) {
+	t.Log(s)
+
+	PipeLine(func(write writer) {
 		for _, item := range s {
-			source <- item
+			write.write(item)
 		}
 	}, func(item interface{}, data chan<- interface{}) {
 		echo := item.(int)
@@ -30,9 +31,7 @@ func TestPipe(t *testing.T) {
 		sort.SliceStable(s, func(i, j int) bool {
 			return s[i] < s[j]
 		})
-		for _, item := range s {
-			fmt.Println(item)
-		}
+		t.Log(s)
 	})
 
 }
